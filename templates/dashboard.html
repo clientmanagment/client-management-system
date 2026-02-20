@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Client Management Dashboard</title>
+    <style>
+        body {
+            font-family: Arial;
+            background-color: #f4f6f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+        }
+
+        .container {
+            padding: 30px;
+        }
+
+        .card {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0px 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+        }
+
+        .stat-box {
+            flex: 1;
+            background: #3498db;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .nav a {
+            margin-right: 15px;
+            text-decoration: none;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .nav a:hover {
+            color: #3498db;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h2>Client Management System</h2>
+</div>
+
+<div class="container">
+
+    <div class="card">
+        <h3>Welcome, {{ username }}</h3>
+    </div>
+
+    <div class="stats">
+        <div class="stat-box">
+            <h3>{{ total_clients }}</h3>
+            <p>Total Clients</p>
+        </div>
+
+        <div class="stat-box" style="background:#27ae60;">
+            <h3>{{ total_users }}</h3>
+            <p>Total Users</p>
+        </div>
+    </div>
+
+    <div class="card nav">
+        <a href="/clients">Manage Clients</a>
+        <a href="/register">Create User</a>
+        <a href="/logout">Logout</a>
+    </div>
+
+</div>
+
+</body>
+</html>

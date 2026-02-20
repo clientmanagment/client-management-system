@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>All Clients</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-5">
+    <div class="card shadow p-4">
+
+        <h2 class="text-center">All Clients</h2>
+
+        <div class="alert alert-info text-center">
+            Total Clients: {{ total_clients }}
+        </div>
+
+        <form method="GET" action="/clients" class="mb-3">
+            <input type="text" name="search" class="form-control" placeholder="Search clients...">
+        </form>
+
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>First</th>
+                    <th>Last</th>
+                    <th>Email</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for client in clients %}
+                <tr>
+                    <td>{{ client[0] }}</td>
+                    <td>{{ client[1] }}</td>
+                    <td>{{ client[2] }}</td>
+                    <td>{{ client[3] }}</td>
+                    <td>{{ client[4] }}</td>
+                    <td>
+                        <a href="/edit/{{ client[0] }}" class="btn btn-warning btn-sm">Edit</a>
+                        <a href="/delete/{{ client[0] }}" class="btn btn-danger btn-sm">Delete</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <a href="/" class="btn btn-success">Add New Client</a>
+        <a href="/logout" class="btn btn-secondary">Logout</a>
+
+    </div>
+</div>
+
+</body>
+</html>

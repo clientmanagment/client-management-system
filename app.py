@@ -1,45 +1,47 @@
 from flask import Flask, render_template, request, redirect, url_for, session
-import mysql.connector
+import os
+import psycopg2
 import bcrypt
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = os.environ.get("SECRET_KEY", "supersecretkey")
 
-# Database connection
-db = mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="vacation4@",   # keep your real password here
-    database="student_db"
-)
+# ---------------------------
+# DATABASE CONNECTION (Postgres)
+# ---------------------------
 
-cursor = db.cursor()
+DATABASE_URL = os.environ.get("DATABASE_URL")
 
-# =============================
+conn = psycopg2.connect(DATABASE_URL)
+conn.autocommit = True
+cursor = conn.cursor()
+
+
+# ---------------------------
+# CREATE TABLES IF NOT EXIST
+# ---------------------------
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL
+);
+""")
+
+cursor.execute("""
+CREATE TABLE IF NOT EXISTS clients (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    email VARCHAR(150)
+);
+""")
+
+
+# ---------------------------
 # LOGIN PAGE
-# =============================
-
-@app.route('/register')
-def register():
-    return render_template('register.html')
-
-
-@app.route('/register', methods=['POST'])
-def handle_register():
-    username = request.form['username']
-    password = request.form['password']
-
-    # Hash password
-    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
-
-    cursor.execute(
-        "INSERT INTO users (username, password) VALUES (%s, %s)",
-        (username, hashed)
-    )
-    db.commit()
-
-    return redirect(url_for('login'))
-
+# ---------------------------
 
 @app.route('/')
 @app.route('/login')
@@ -47,9 +49,9 @@ def login():
     return render_template('login.html')
 
 
-# =============================
-# HANDLE LOGIN (bcrypt)
-# =============================
+# ---------------------------
+# HANDLE LOGIN
+# ---------------------------
 
 @app.route('/login', methods=['POST'])
 def handle_login():
@@ -73,19 +75,36 @@ def handle_login():
     return "Invalid credentials. Try again."
 
 
-# =============================
-# LOGOUT
-# =============================
+# ---------------------------
+# REGISTER
+# ---------------------------
 
-@app.route('/logout')
-def logout():
-    session.pop('user', None)
+@app.route('/register')
+def register():
+    return render_template('register.html')
+
+
+@app.route('/register', methods=['POST'])
+def handle_register():
+    username = request.form['username']
+    password = request.form['password']
+
+    hashed = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+
+    try:
+        cursor.execute(
+            "INSERT INTO users (username, password) VALUES (%s, %s)",
+            (username, hashed)
+        )
+    except:
+        return "Username already exists."
+
     return redirect(url_for('login'))
 
 
-# =============================
-# VIEW CLIENTS (Protected)
-# =============================
+# ---------------------------
+# DASHBOARD
+# ---------------------------
 
 @app.route('/dashboard')
 def dashboard():
@@ -93,11 +112,9 @@ def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    # Count total clients
     cursor.execute("SELECT COUNT(*) FROM clients")
     total_clients = cursor.fetchone()[0]
 
-    # Count total users
     cursor.execute("SELECT COUNT(*) FROM users")
     total_users = cursor.fetchone()[0]
 
@@ -109,6 +126,10 @@ def dashboard():
     )
 
 
+# ---------------------------
+# VIEW CLIENTS
+# ---------------------------
+
 @app.route('/clients')
 def view_clients():
 
@@ -119,21 +140,20 @@ def view_clients():
 
     if search:
         cursor.execute(
-            "SELECT * FROM clients WHERE first_name LIKE %s OR last_name LIKE %s",
+            "SELECT * FROM clients WHERE first_name ILIKE %s OR last_name ILIKE %s",
             (f"%{search}%", f"%{search}%")
         )
     else:
         cursor.execute("SELECT * FROM clients")
 
     clients = cursor.fetchall()
-    total = len(clients)
 
-    return render_template('clients.html', clients=clients, total=total)
+    return render_template('clients.html', clients=clients)
 
 
-# =============================
+# ---------------------------
 # ADD CLIENT
-# =============================
+# ---------------------------
 
 @app.route('/add', methods=['POST'])
 def add_client():
@@ -150,14 +170,12 @@ def add_client():
         (first_name, last_name, email)
     )
 
-    db.commit()
-
     return redirect(url_for('view_clients'))
 
 
-# =============================
+# ---------------------------
 # EDIT CLIENT
-# =============================
+# ---------------------------
 
 @app.route('/edit/<int:id>')
 def edit_client(id):
@@ -186,14 +204,12 @@ def update_client(id):
         (first_name, last_name, email, id)
     )
 
-    db.commit()
-
     return redirect(url_for('view_clients'))
 
 
-# =============================
+# ---------------------------
 # DELETE CLIENT
-# =============================
+# ---------------------------
 
 @app.route('/delete/<int:id>')
 def delete_client(id):
@@ -202,14 +218,13 @@ def delete_client(id):
         return redirect(url_for('login'))
 
     cursor.execute("DELETE FROM clients WHERE id = %s", (id,))
-    db.commit()
 
     return redirect(url_for('view_clients'))
 
 
-# =============================
+# ---------------------------
 # RUN APP
-# =============================
+# ---------------------------
 
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run()

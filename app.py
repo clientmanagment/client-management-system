@@ -11,40 +11,7 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key")
 # DATABASE CONNECTION
 # ==============================
 def get_db_connection():
-    conn = psycopg2.connect(os.environ["DATABASE_URL"])
-    return conn
-
-
-# ==============================
-# CREATE TABLES IF NOT EXIST
-# ==============================
-def create_tables():
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(100) UNIQUE NOT NULL,
-            password TEXT NOT NULL
-        )
-    """)
-
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100),
-            email VARCHAR(100),
-            phone VARCHAR(50)
-        )
-    """)
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-
-create_tables()
+    return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
 # ==============================
@@ -70,15 +37,26 @@ def register():
         cur = conn.cursor()
 
         try:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    username VARCHAR(100) UNIQUE NOT NULL,
+                    password TEXT NOT NULL
+                )
+            """)
+
             cur.execute(
                 "INSERT INTO users (username, password) VALUES (%s, %s)",
                 (username, hashed.decode('utf-8'))
             )
+
             conn.commit()
-            flash("Registration successful. Please login.")
+            flash("Registration successful.")
             return redirect(url_for('login'))
-        except:
+
+        except Exception as e:
             flash("Username already exists.")
+
         finally:
             cur.close()
             conn.close()
@@ -97,8 +75,18 @@ def login():
 
         conn = get_db_connection()
         cur = conn.cursor()
+
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        """)
+
         cur.execute("SELECT password FROM users WHERE username=%s", (username,))
         user = cur.fetchone()
+
         cur.close()
         conn.close()
 
@@ -119,16 +107,7 @@ def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
 
-    conn = get_db_connection()
-    cur = conn.cursor()
-    cur.execute("SELECT COUNT(*) FROM clients")
-    total_clients = cur.fetchone()[0]
-    cur.close()
-    conn.close()
-
-    return render_template('dashboard.html',
-                           username=session['user'],
-                           total_clients=total_clients)
+    return render_template('dashboard.html', username=session['user'])
 
 
 # ==============================
@@ -141,4 +120,4 @@ def logout():
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()

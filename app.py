@@ -112,10 +112,10 @@ def get_clients():
 # GET SINGLE CLIENT
 # ==============================
 
-@app.route("/clients/<int:id>", methods=["GET"])
-def get_client(id):
-    client = Client.query.get_or_404(id)
-    return jsonify(client.to_dict()), 200
+@app.route("/clients", methods=["GET"])
+def get_clients():
+    clients = Client.query.order_by(Client.created_at.desc()).all()
+    return jsonify([client.to_dict() for client in clients]), 200
 
 # ==============================
 # UPDATE CLIENT

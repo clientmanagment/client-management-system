@@ -1,148 +1,170 @@
 import os
-import psycopg2
-import bcrypt
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from datetime import datetime
+from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
+from dotenv import load_dotenv
+
+# Load environment variables (for local development)
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key")
 
-# ----------------------------
-# DATABASE CONNECTION
-# ----------------------------
-def get_db_connection():
-    return psycopg2.connect(
-        os.environ["DATABASE_URL"],
-        sslmode="require"
+# ==============================
+# CONFIGURATION
+# ==============================
+
+# Secret key
+app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "supersecretkey")
+
+# Database configuration (Render provides DATABASE_URL)
+database_url = os.getenv("DATABASE_URL")
+
+if database_url and database_url.startswith("postgres://"):
+    database_url = database_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# ==============================
+# DATABASE SETUP
+# ==============================
+
+db = SQLAlchemy(app)
+migrate = Migrate(app, db)
+
+# ==============================
+# MODELS
+# ==============================
+
+class Client(db.Model):
+    __tablename__ = "clients"
+
+    id = db.Column(db.Integer, primary_key=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    phone = db.Column(db.String(20))
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "email": self.email,
+            "phone": self.phone,
+            "created_at": self.created_at.isoformat()
+        }
+
+# ==============================
+# ROUTES
+# ==============================
+
+@app.route("/")
+def home():
+    return jsonify({"message": "Client Management API is running"}), 200
+
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
+# ==============================
+# CREATE CLIENT
+# ==============================
+
+@app.route("/clients", methods=["POST"])
+def create_client():
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "No input data provided"}), 400
+
+    if not all(k in data for k in ("first_name", "last_name", "email")):
+        return jsonify({"error": "Missing required fields"}), 400
+
+    existing_client = Client.query.filter_by(email=data["email"]).first()
+    if existing_client:
+        return jsonify({"error": "Email already exists"}), 400
+
+    client = Client(
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        email=data["email"],
+        phone=data.get("phone")
     )
 
-# ----------------------------
-# HOME
-# ----------------------------
-@app.route('/')
-def home():
-    return redirect(url_for('login'))
+    db.session.add(client)
+    db.session.commit()
 
-# ----------------------------
-# REGISTER
-# ----------------------------
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+    return jsonify(client.to_dict()), 201
 
-        hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+# ==============================
+# GET ALL CLIENTS
+# ==============================
 
-        conn = get_db_connection()
-        cur = conn.cursor()
+@app.route("/clients", methods=["GET"])
+def get_clients():
+    clients = Client.query.order_by(Client.created_at.desc()).all()
+    return jsonify([client.to_dict() for client in clients]), 200
 
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-        """)
+# ==============================
+# GET SINGLE CLIENT
+# ==============================
 
-        try:
-            cur.execute(
-                "INSERT INTO users (username, password) VALUES (%s, %s)",
-                (username, hashed.decode('utf-8'))
-            )
-            conn.commit()
-            flash("Registration successful.")
-            return redirect(url_for('login'))
-        except:
-            flash("Username already exists.")
-        finally:
-            cur.close()
-            conn.close()
+@app.route("/clients/<int:id>", methods=["GET"])
+def get_client(id):
+    client = Client.query.get_or_404(id)
+    return jsonify(client.to_dict()), 200
 
-    return render_template('register.html')
+# ==============================
+# UPDATE CLIENT
+# ==============================
 
-# ----------------------------
-# LOGIN
-# ----------------------------
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
+@app.route("/clients/<int:id>", methods=["PUT"])
+def update_client(id):
+    client = Client.query.get_or_404(id)
+    data = request.get_json()
 
-        conn = get_db_connection()
-        cur = conn.cursor()
+    client.first_name = data.get("first_name", client.first_name)
+    client.last_name = data.get("last_name", client.last_name)
+    client.email = data.get("email", client.email)
+    client.phone = data.get("phone", client.phone)
 
-        cur.execute("SELECT password FROM users WHERE username=%s", (username,))
-        user = cur.fetchone()
+    db.session.commit()
 
-        cur.close()
-        conn.close()
+    return jsonify(client.to_dict()), 200
 
-        if user and bcrypt.checkpw(password.encode('utf-8'), user[0].encode('utf-8')):
-            session['user'] = username
-            return redirect(url_for('dashboard'))
-        else:
-            flash("Invalid credentials")
+# ==============================
+# DELETE CLIENT
+# ==============================
 
-    return render_template('login.html')
+@app.route("/clients/<int:id>", methods=["DELETE"])
+def delete_client(id):
+    client = Client.query.get_or_404(id)
 
-# ----------------------------
-# DASHBOARD
-# ----------------------------
-@app.route('/dashboard')
-def dashboard():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-    return render_template('dashboard.html', username=session['user'])
+    db.session.delete(client)
+    db.session.commit()
 
-# ----------------------------
-# VIEW CLIENTS
-# ----------------------------
-@app.route('/clients')
-def clients():
-    if 'user' not in session:
-        return redirect(url_for('login'))
+    return jsonify({"message": "Client deleted"}), 200
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+# ==============================
+# ERROR HANDLERS
+# ==============================
 
-    cur.execute("""
-        CREATE TABLE IF NOT EXISTS clients (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(100),
-            email VARCHAR(100),
-            phone VARCHAR(50),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+@app.errorhandler(404)
+def not_found(error):
+    return jsonify({"error": "Resource not found"}), 404
 
-    cur.execute("SELECT * FROM clients ORDER BY id DESC")
-    client_list = cur.fetchall()
+@app.errorhandler(500)
+def internal_error(error):
+    return jsonify({"error": "Internal server error"}), 500
 
-    cur.close()
-    conn.close()
 
-    return render_template('clients.html',
-                           clients=client_list,
-                           username=session['user'])
+# ==============================
+# RUN LOCALLY
+# ==============================
 
-# ----------------------------
-# ADD CLIENT PAGE
-# ----------------------------
-@app.route('/add_client')
-def add_client_page():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-    return render_template('add_client.html')
-
-# ----------------------------
-# SAVE CLIENT (POST)
-# ----------------------------
-@app.route('/add_client', methods=['POST'])
-def add_client():
-    if 'user' not in session:
-        return redirect(url_for('login'))
-
-    name = request.form['name']
-    email = request.form['email']
-    phone = request.form['phone']
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)

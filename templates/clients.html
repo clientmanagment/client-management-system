@@ -11,21 +11,13 @@
 
         <h2 class="text-center">All Clients</h2>
 
-        <div class="alert alert-info text-center">
-            Total Clients: {{ total_clients }}
-        </div>
-
-        <form method="GET" action="/clients" class="mb-3">
-            <input type="text" name="search" class="form-control" placeholder="Search clients...">
-        </form>
-
-        <table class="table table-striped">
+        <table class="table table-striped mt-4">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>First</th>
-                    <th>Last</th>
+                    <th>Name</th>
                     <th>Email</th>
+                    <th>Phone</th>
                     <th>Created</th>
                     <th>Action</th>
                 </tr>
@@ -39,16 +31,22 @@
                     <td>{{ client[3] }}</td>
                     <td>{{ client[4] }}</td>
                     <td>
-                        <a href="/edit/{{ client[0] }}" class="btn btn-warning btn-sm">Edit</a>
-                        <a href="/delete/{{ client[0] }}" class="btn btn-danger btn-sm">Delete</a>
+                        <a href="/delete_client/{{ client[0] }}" class="btn btn-danger btn-sm">
+                            Delete
+                        </a>
                     </td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
 
-        <a href="/" class="btn btn-success">Add New Client</a>
-        <a href="/logout" class="btn btn-secondary">Logout</a>
+        <a href="{{ url_for('add_client_page') }}" class="btn btn-success">
+            Add New Client
+        </a>
+
+        <a href="/logout" class="btn btn-secondary">
+            Logout
+        </a>
 
     </div>
 </div>

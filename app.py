@@ -6,28 +6,25 @@ from flask import Flask, render_template, request, redirect, url_for, session, f
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key")
 
-
-# ==============================
+# ----------------------------
 # DATABASE CONNECTION
-# ==============================
+# ----------------------------
 def get_db_connection():
     return psycopg2.connect(
         os.environ["DATABASE_URL"],
-        sslmode='require'
+        sslmode="require"
     )
 
-
-# ==============================
+# ----------------------------
 # HOME
-# ==============================
+# ----------------------------
 @app.route('/')
 def home():
     return redirect(url_for('login'))
 
-
-# ==============================
+# ----------------------------
 # REGISTER
-# ==============================
+# ----------------------------
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -63,10 +60,9 @@ def register():
 
     return render_template('register.html')
 
-
-# ==============================
+# ----------------------------
 # LOGIN
-# ==============================
+# ----------------------------
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -90,21 +86,18 @@ def login():
 
     return render_template('login.html')
 
-
-# ==============================
+# ----------------------------
 # DASHBOARD
-# ==============================
+# ----------------------------
 @app.route('/dashboard')
 def dashboard():
     if 'user' not in session:
         return redirect(url_for('login'))
-
     return render_template('dashboard.html', username=session['user'])
 
-
-# ==============================
+# ----------------------------
 # VIEW CLIENTS
-# ==============================
+# ----------------------------
 @app.route('/clients')
 def clients():
     if 'user' not in session:
@@ -118,7 +111,8 @@ def clients():
             id SERIAL PRIMARY KEY,
             name VARCHAR(100),
             email VARCHAR(100),
-            phone VARCHAR(50)
+            phone VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
@@ -132,10 +126,18 @@ def clients():
                            clients=client_list,
                            username=session['user'])
 
+# ----------------------------
+# ADD CLIENT PAGE
+# ----------------------------
+@app.route('/add_client')
+def add_client_page():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+    return render_template('add_client.html')
 
-# ==============================
-# ADD CLIENT
-# ==============================
+# ----------------------------
+# SAVE CLIENT (POST)
+# ----------------------------
 @app.route('/add_client', methods=['POST'])
 def add_client():
     if 'user' not in session:
@@ -144,50 +146,3 @@ def add_client():
     name = request.form['name']
     email = request.form['email']
     phone = request.form['phone']
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute(
-        "INSERT INTO clients (name, email, phone) VALUES (%s, %s, %s)",
-        (name, email, phone)
-    )
-
-    conn.commit()
-    cur.close()
-    conn.close()
-
-    return redirect(url_for('clients'))
-
-
-# ==============================
-# DELETE CLIENT
-# ==============================
-@app.route('/delete_client/<int:id>')
-def delete_client(id):
-    if 'user' not in session:
-        return redirect(url_for('login'))
-
-    conn = get_db_connection()
-    cur = conn.cursor()
-
-    cur.execute("DELETE FROM clients WHERE id=%s", (id,))
-    conn.commit()
-
-    cur.close()
-    conn.close()
-
-    return redirect(url_for('clients'))
-
-
-# ==============================
-# LOGOUT
-# ==============================
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('login'))
-
-
-if __name__ == "__main__":
-    app.run()

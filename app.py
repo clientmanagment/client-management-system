@@ -36,27 +36,24 @@ def register():
         conn = get_db_connection()
         cur = conn.cursor()
 
-        try:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS users (
-                    id SERIAL PRIMARY KEY,
-                    username VARCHAR(100) UNIQUE NOT NULL,
-                    password TEXT NOT NULL
-                )
-            """)
+        cur.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                id SERIAL PRIMARY KEY,
+                username VARCHAR(100) UNIQUE NOT NULL,
+                password TEXT NOT NULL
+            )
+        """)
 
+        try:
             cur.execute(
                 "INSERT INTO users (username, password) VALUES (%s, %s)",
                 (username, hashed.decode('utf-8'))
             )
-
             conn.commit()
             flash("Registration successful.")
             return redirect(url_for('login'))
-
-        except Exception as e:
+        except:
             flash("Username already exists.")
-
         finally:
             cur.close()
             conn.close()
@@ -75,14 +72,6 @@ def login():
 
         conn = get_db_connection()
         cur = conn.cursor()
-
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id SERIAL PRIMARY KEY,
-                username VARCHAR(100) UNIQUE NOT NULL,
-                password TEXT NOT NULL
-            )
-        """)
 
         cur.execute("SELECT password FROM users WHERE username=%s", (username,))
         user = cur.fetchone()
@@ -108,6 +97,84 @@ def dashboard():
         return redirect(url_for('login'))
 
     return render_template('dashboard.html', username=session['user'])
+
+
+# ==============================
+# VIEW CLIENTS
+# ==============================
+@app.route('/clients')
+def clients():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS clients (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            email VARCHAR(100),
+            phone VARCHAR(50)
+        )
+    """)
+
+    cur.execute("SELECT * FROM clients ORDER BY id DESC")
+    client_list = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return render_template('clients.html',
+                           clients=client_list,
+                           username=session['user'])
+
+
+# ==============================
+# ADD CLIENT
+# ==============================
+@app.route('/add_client', methods=['POST'])
+def add_client():
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    name = request.form['name']
+    email = request.form['email']
+    phone = request.form['phone']
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        "INSERT INTO clients (name, email, phone) VALUES (%s, %s, %s)",
+        (name, email, phone)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('clients'))
+
+
+# ==============================
+# DELETE CLIENT
+# ==============================
+@app.route('/delete_client/<int:id>')
+def delete_client(id):
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute("DELETE FROM clients WHERE id=%s", (id,))
+    conn.commit()
+
+    cur.close()
+    conn.close()
+
+    return redirect(url_for('clients'))
 
 
 # ==============================

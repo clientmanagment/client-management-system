@@ -11,7 +11,10 @@ app.secret_key = os.environ.get("SECRET_KEY", "dev_secret_key")
 # DATABASE CONNECTION
 # ==============================
 def get_db_connection():
-    return psycopg2.connect(os.environ["DATABASE_URL"])
+    return psycopg2.connect(
+        os.environ["DATABASE_URL"],
+        sslmode='require'
+    )
 
 
 # ==============================
